@@ -1,0 +1,238 @@
+import java.util.Scanner;
+
+// A message has a sender, a receiver and some text
+class Message {
+    String sender;
+    String receiver;
+    String text;
+
+    Message(String sender, String receiver, String text) {
+        this.sender = sender;
+        this.receiver = receiver;
+        this.text = text;
+    }
+
+    void display() {
+        System.out.println(sender + " to " + receiver + ": " + text);
+    }
+}
+
+// A node of the linked list (chat history)
+class Node {
+    Message data;
+    Node next;
+
+    Node(Message data) {
+        this.data = data;
+        this.next = null;
+    }
+}
+
+public class ChatApp {
+
+    static Scanner sc = new Scanner(System.in);
+
+    // ---------- HASHING (users) ----------
+    static String[] table = new String[10];
+    static int userCount = 0;
+
+    // ---------- QUEUE (pending messages) ----------
+    static Message[] queue = new Message[50];
+    static int front = 0;
+    static int rear = 0;
+
+    // ---------- STACK (undo) ----------
+    static Message[] stack = new Message[50];
+    static int top = -1;
+
+    // ---------- LINKED LIST (chat history) ----------
+    static Node head = null;
+
+    // hash function: add all letters and take remainder by 10
+    static int hash(String name) {
+        int sum = 0;
+        for (int i = 0; i < name.length(); i++) {
+            sum = sum + name.charAt(i);
+        }
+        return sum % 10;
+    }
+
+    // check if user is present in the hash table
+    static boolean searchUser(String name) {
+        int index = hash(name);
+        for (int i = 0; i < 10; i++) {
+            if (table[index] == null) {
+                return false;
+            }
+            if (table[index].equals(name)) {
+                return true;
+            }
+            index = (index + 1) % 10;   // collision: check next place
+        }
+        return false;
+    }
+
+    static void registerUser() {
+        System.out.print("Enter username: ");
+        String name = sc.nextLine();
+
+        if (searchUser(name)) {
+            System.out.println("Username already exists.");
+        } else if (userCount == 10) {
+            System.out.println("User table is full.");
+        } else {
+            int index = hash(name);
+            while (table[index] != null) {
+                index = (index + 1) % 10;   // collision: go to next place
+            }
+            table[index] = name;
+            userCount++;
+            System.out.println("User registered.");
+        }
+    }
+
+    // add message in the queue
+    static void sendMessage() {
+        System.out.print("Enter sender: ");
+        String from = sc.nextLine();
+        System.out.print("Enter receiver: ");
+        String to = sc.nextLine();
+
+        if (!searchUser(from) || !searchUser(to)) {
+            System.out.println("Both users must be registered.");
+            return;
+        }
+        if (rear == 50) {
+            System.out.println("Queue is full.");
+            return;
+        }
+        System.out.print("Enter message: ");
+        String text = sc.nextLine();
+
+        queue[rear] = new Message(from, to, text);   // enqueue
+        rear++;
+        System.out.println("Message added to queue.");
+    }
+
+    // add message at the end of the linked list
+    static void addToList(Message m) {
+        Node newNode = new Node(m);
+        if (head == null) {
+            head = newNode;
+        } else {
+            Node temp = head;
+            while (temp.next != null) {
+                temp = temp.next;
+            }
+            temp.next = newNode;
+        }
+    }
+
+    // take messages out of the queue one by one (first in, first out)
+    static void deliverMessages() {
+        if (front == rear) {
+            System.out.println("No pending messages.");
+            return;
+        }
+        while (front < rear) {
+            Message m = queue[front];   // dequeue
+            front++;
+
+            addToList(m);               // save in chat history
+
+            if (top < 49) {             // push in stack for undo
+                top++;
+                stack[top] = m;
+            }
+            System.out.println("Delivered: " + m.text);
+        }
+        front = 0;
+        rear = 0;
+    }
+
+    static void viewChat() {
+        System.out.print("Enter username: ");
+        String name = sc.nextLine();
+
+        if (!searchUser(name)) {
+            System.out.println("User not found.");
+            return;
+        }
+        int count = 0;
+        Node temp = head;
+        while (temp != null) {
+            if (temp.data.sender.equals(name) || temp.data.receiver.equals(name)) {
+                temp.data.display();
+                count++;
+            }
+            temp = temp.next;
+        }
+        if (count == 0) {
+            System.out.println("No messages yet.");
+        }
+    }
+
+    // delete one message from the linked list
+    static void removeFromList(Message m) {
+        if (head == null) {
+            return;
+        }
+        if (head.data == m) {
+            head = head.next;
+            return;
+        }
+        Node temp = head;
+        while (temp.next != null) {
+            if (temp.next.data == m) {
+                temp.next = temp.next.next;
+                return;
+            }
+            temp = temp.next;
+        }
+    }
+
+    // undo the last delivered message (last in, first out)
+    static void undoMessage() {
+        if (top == -1) {
+            System.out.println("Nothing to undo.");
+            return;
+        }
+        Message m = stack[top];   // pop
+        top--;
+        removeFromList(m);
+        System.out.println("Removed: " + m.text);
+    }
+
+    public static void main(String[] args) {
+        int choice = 0;
+        while (choice != 6) {
+            System.out.println();
+            System.out.println("===== CHAT APPLICATION SIMULATOR =====");
+            System.out.println("1. Register user");
+            System.out.println("2. Send message");
+            System.out.println("3. Deliver messages");
+            System.out.println("4. View chat");
+            System.out.println("5. Undo last message");
+            System.out.println("6. Exit");
+            System.out.print("Enter choice: ");
+            choice = sc.nextInt();
+            sc.nextLine();
+
+            if (choice == 1) {
+                registerUser();
+            } else if (choice == 2) {
+                sendMessage();
+            } else if (choice == 3) {
+                deliverMessages();
+            } else if (choice == 4) {
+                viewChat();
+            } else if (choice == 5) {
+                undoMessage();
+            } else if (choice == 6) {
+                System.out.println("Thank you!");
+            } else {
+                System.out.println("Wrong choice.");
+            }
+        }
+    }
+}
